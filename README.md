@@ -5,3 +5,5 @@ based on WT32_ETH01 and a serial2usb stick for download an powersupply and NanoB
 based on knx driver from Franc Marini with small changes -> update repo with tpuart.cpp fix for WT32!
 Tpuart is connected to RXD(5)/TXD(17) pins of WT32 
 Additional buzzer for criticals events and on own GP is available
+Time via NTP also available and Webinterface to configure ip adresses (feature not yet finished)
+Runtime supervision for Knx.task with own mqtt message
