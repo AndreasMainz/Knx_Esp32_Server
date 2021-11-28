@@ -592,8 +592,8 @@ void loop()
   }
   if (!(Main_Clock & 0xfffff)) {
     if (buffer_in_pnt) {
-        Serial.print("buffer_out_pnt: "); Serial.println(buffer_out_pnt);
-        Serial.println(buffer[buffer_out_pnt]);
+        //Serial.print("buffer_out_pnt: "); Serial.println(buffer_out_pnt);
+        //Serial.println(buffer[buffer_out_pnt]);
         // Serial.println(buffer [buffer_in_pnt]);
         client.publish(TOPIC, buffer[buffer_out_pnt]);
         buffer_out_pnt ++;
@@ -601,7 +601,7 @@ void loop()
         {
           buffer_in_pnt = 0;
           buffer_out_pnt = 0;
-          Serial.println("buffer empty.");
+          // Serial.println("buffer empty.");
         }
         else buffer[buffer_in_pnt][0] = '\0'; //untersten Buffer leeren
       }
