@@ -33,7 +33,7 @@ word individualAddress = P_ADDR(5, 1, 111);
 // ################################################
 // ### DEBUG Configuration
 // ################################################
-#define KDEBUG // comment this line to disable DEBUG mode
+// #define KDEBUG // comment this line to disable DEBUG mode
 
 #ifdef KDEBUG
 #include <DebugUtil.h>
@@ -108,10 +108,10 @@ char mqtt_buffer[30][500];
 void mqtt_callback(char* topic, byte* payload, unsigned int length)
 {
   (length > 499) ? length = 499 : length;
-  strcpy(mqtt_buffer[Mqtt_zeiger], topic);
-  strcat(mqtt_buffer[Mqtt_zeiger], ": ");
-  strncat(mqtt_buffer[Mqtt_zeiger], (char *)payload, length); // Payload auf globale Var kopieren
-  if (Mqtt_zeiger < 28) Mqtt_zeiger++;
+  strcpy(mqtt_buffer[Mqtt_in_zeiger], topic);
+  strcat(mqtt_buffer[Mqtt_in_zeiger], ": ");
+  strncat(mqtt_buffer[Mqtt_in_zeiger], (char *)payload, length); // Payload auf globale Var kopieren
+  if (Mqtt_in_zeiger < 29) Mqtt_in_zeiger++;
 }
 void reconnect()  //mqtt connection
 {
@@ -130,7 +130,7 @@ void reconnect()  //mqtt connection
 
       // Once connected, publish an announcement...
       char zahl[10];
-      if (buffer_pnt < 24)snprintf(buffer[++buffer_pnt], 20, "Mqtt online ;-)");
+      if (buffer_in_pnt < 24)snprintf(buffer[buffer_in_pnt++], 20, "Mqtt online ;-)");
       // client.publish(TOPIC, buffer);
 
       //Serial.println("Published connection message successfully!");
@@ -314,7 +314,7 @@ void knxEvents(byte index) { // avoid long execution times like String calculati
   // Empfangsobjekte Input
   //Serial.print("Knx Botschaft empfangen: "); Serial.println(index);
   {
-    if (buffer_pnt < 24) snprintf(buffer[++buffer_pnt], 20, "Msg %d", index);
+    if (buffer_in_pnt < 24) snprintf(buffer[buffer_in_pnt++], 20, "Msg %d", index);
   }
 
   switch (index) {
@@ -323,14 +323,14 @@ void knxEvents(byte index) { // avoid long execution times like String calculati
     case 3: // Datum von Knx lesen an Mqtt schicken
       {
         byte m[3]; Knx.read(index, m); // read index 4 3 bytes for Timeformat
-        if (buffer_pnt < 24) snprintf(buffer[++buffer_pnt], 20, "Datum:%02d.%02d.%02d", m[0], m[1], m[2]); //geht ab 2100 nicht mehr..
+        if (buffer_in_pnt < 24) snprintf(buffer[buffer_in_pnt++], 20, "Datum:%02d.%02d.%02d", m[0], m[1], m[2]); //geht ab 2100 nicht mehr..
       }
       break;
     case 4: //Zeit von Knx lesen an Mqtt schicken
       {
         byte m[3]; Knx.read(index, m); // read index 4 3 bytes for Timeformat
         m[0] &= 0x1F; // Tag rauslöschen..
-        if (buffer_pnt < 24) snprintf(buffer[++buffer_pnt], 20, "Zeit: %2d:%2d:%2d", m[0], m[1], m[2]); //geht ab 2100 nicht mehr..
+        if (buffer_in_pnt < 24) snprintf(buffer[buffer_in_pnt++], 20, "Zeit: %2d:%2d:%2d", m[0], m[1], m[2]); //geht ab 2100 nicht mehr..
       }
       break;
     case 5: //Beep
@@ -346,10 +346,10 @@ void knxEvents(byte index) { // avoid long execution times like String calculati
         // Status_Tag_Nacht = Knx.read(index);
         Knx.read(index, Status_Tag_Nacht);
         //Serial.print("from Callback: Status_Tag_Nacht: "); Serial.println(Status_Tag_Nacht);
-        if (buffer_pnt < 24) {
+        if (buffer_in_pnt < 24) {
           if  (!Status_Tag_Nacht)
-            snprintf(buffer[++buffer_pnt], 20, "Tag erkannt.");
-          else snprintf(buffer[++buffer_pnt], 20, "Nacht erkannt.");
+            snprintf(buffer[buffer_in_pnt++], 20, "Tag erkannt.");
+          else snprintf(buffer[buffer_in_pnt++], 20, "Nacht erkannt.");
         }
         break;
       }
@@ -383,6 +383,7 @@ void IRAM_ATTR ISR_tone()
 void Call_Task1(void *parameter)
 {
   uint32_t Task1_cnt;
+  Serial.begin(115200);
   ETH.begin(ETH_PHY_ADDR, ETH_PHY_POWER);
   ETH.config(myIP, myGW, mySN, myDNS);
   WiFi.onEvent(WiFiEvent);
@@ -390,7 +391,6 @@ void Call_Task1(void *parameter)
     Serial.print("*");
     delay(100);
   }
-  Serial.begin(115200);
   /////////////////////////////////////////////////////////////////////////////
 
   Serial.print("\nStarting AdvancedWebServer on " + String(ARDUINO_BOARD));
@@ -448,7 +448,7 @@ void Call_Task1(void *parameter)
 void setup()
 {
   // disableCore0WDT();
-  Serial.begin(115200);
+  // Serial.begin(115200); init in Core 0 
 #if 1
   //////////////////////////////////////////////////////////////////////////
   // Task1 auf Core 0 anlegen //////////////////////////////////////////////
@@ -513,10 +513,10 @@ void setup()
   // configTime(MY_TZ, MY_NTP_SERVER); // --> Here is the IMPORTANT ONE LINER needed in your sketch!
   Main_Clock = 0;
   Knx_max = 0;
-  Mqtt_zeiger = 0;
+  Mqtt_in_zeiger = Mqtt_out_zeiger = 0;
   Knxupdated = 0;
   Lz_count = 0;
-  buffer_pnt = 1;
+  buffer_in_pnt = 0;
 }
 
 void loop()
@@ -533,8 +533,7 @@ void loop()
     if (temp > Knx_max) Knx_max = temp;
     if (Knx_max > 7700) { // Auffällige Laufzeiten ausgeben > 2ms
       Lz_count++;
-      if (buffer_pnt < 24)snprintf(buffer[++buffer_pnt], 20, "Lz:%d Cnt:%d", Knx_max, Lz_count);
-      //client.publish(TOPIC, buffer);
+      if (buffer_in_pnt < 24)snprintf(buffer[buffer_in_pnt++], 20, "Lz:%d Cnt:%d", Knx_max, Lz_count);
       Knx_max = 0;
       //Warnton
       pinMode(Beep_out, OUTPUT);
@@ -547,14 +546,12 @@ void loop()
   { // Busmonitor all GA's send to mqtt
 
     // in GA_int ist die Gruppenadresse Hexademinal gespeichert, wird hier extrahiert Area/Linie/Grp
-    if (buffer_pnt < 24)snprintf(buffer[++buffer_pnt], 20, "GA: %d/%d/%d", (Ga_int >> 11), ((Ga_int >> 8) & 0x7), (Ga_int & 0xff));
-    //Serial.println(buffer[buffer_pnt - 1]);
-    // client.publish(TOPIC, buffer);
+    if (buffer_in_pnt < 24)snprintf(buffer[buffer_in_pnt++], 20, "GA: %d/%d/%d", (Ga_int >> 11), ((Ga_int >> 8) & 0x7), (Ga_int & 0xff));
     Ga_old = Ga_int;
   }
   if (!(Main_Clock & 0x3fffff)) {
     //Serial.print("Mqtt_zeiger : "); Serial.println(Mqtt_zeiger);
-    if ((buffer_pnt < 24) && (Lz_count)) snprintf(buffer[++buffer_pnt], 20, "Anzahl Laufzeit: %d", Lz_count);
+    if ((buffer_in_pnt < 24) && (Lz_count)) snprintf(buffer[buffer_in_pnt++], 20, "Anzahl Laufzeit: %d", Lz_count);
     //client.publish("LZ", buffer);
 
     if (Knxupdated == 0) {
@@ -562,10 +559,15 @@ void loop()
       //Serial.print("Tag/Nacht Info anfordern");
       Knxupdated = 1;
     }
-    if (Mqtt_zeiger)
+    if (Mqtt_in_zeiger)
     {
-      Serial.println(mqtt_buffer[Mqtt_zeiger]);
-      Mqtt_zeiger--;
+      Serial.println(mqtt_buffer[Mqtt_out_zeiger]);
+      Mqtt_out_zeiger++;
+    }
+    if ((Mqtt_in_zeiger == Mqtt_out_zeiger) && (Mqtt_in_zeiger != 0)) //queue ist leer und nicht schon resettet
+    {
+      Mqtt_in_zeiger = 0;
+      Mqtt_out_zeiger = 0;
     }
     /////////////////////////////////////// rolling Minute counter für Rolladensteuerung
     if (Status_Tag_Nacht)
@@ -580,17 +582,30 @@ void loop()
       Nacht_timer = 0;
       //Serial.print("Tag_timer: "); Serial.println(Tag_timer);
     }
+#if 0
     Knx.write(10, (Nacht_timer + Tag_timer) & 1);
     Knx.write(11, (Nacht_timer + Tag_timer) & 2);
     Knx.write(12, (Nacht_timer + Tag_timer) & 4);
     Knx.write(13, (Nacht_timer + Tag_timer) & 8);
+#endif
     Serial.print(".");//Keep Alive signal
   }
   if (!(Main_Clock & 0xfffff)) {
-    //Serial.print("buffer_pnt: "); Serial.println(buffer_pnt);
-    //Serial.println(buffer[buffer_pnt]);
-    if (buffer_pnt) client.publish(TOPIC, buffer[buffer_pnt--]);
-    else buffer[buffer_pnt][0] = '\0'; //untersten Buffer leeren
-  }
+    if (buffer_in_pnt) {
+        Serial.print("buffer_out_pnt: "); Serial.println(buffer_out_pnt);
+        Serial.println(buffer[buffer_out_pnt]);
+        // Serial.println(buffer [buffer_in_pnt]);
+        client.publish(TOPIC, buffer[buffer_out_pnt]);
+        buffer_out_pnt ++;
+        if ((buffer_in_pnt == buffer_out_pnt) && (buffer_in_pnt != 0)) //queue ist leer und nicht schon resettet
+        {
+          buffer_in_pnt = 0;
+          buffer_out_pnt = 0;
+          Serial.println("buffer empty.");
+        }
+        else buffer[buffer_in_pnt][0] = '\0'; //untersten Buffer leeren
+      }
+    }
+
   Main_Clock++;
 }
