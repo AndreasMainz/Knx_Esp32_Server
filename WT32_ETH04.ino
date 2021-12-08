@@ -1,4 +1,4 @@
-// buffer added for all callbacks buffer[0] ist immer leer, erste Botschaft in Buffer[1] lifo
+                                                                                                                                                             // buffer added for all callbacks buffer[0] ist immer leer, erste Botschaft in Buffer[1] lifo
 // 111021 Beep added via 2/7/101
 // Mqtt ip Adresse aus Conf laden..
 // Debug auf Serial Ausgabe
@@ -12,6 +12,7 @@
 #define _ETHERNET_WEBSERVER_LOGLEVEL_       0
 
 #include <KnxDevice.h>
+// #include <KnxTelegram.h>
 #include "knx.h"
 #include <WebServer_WT32_ETH01.h>
 #include <PubSubClient.h>
@@ -38,6 +39,11 @@ word individualAddress = P_ADDR(5, 1, 111);
 #ifdef KDEBUG
 #include <DebugUtil.h>
 #endif
+
+String traces;
+void TracesDisplay() { Serial.print(traces); traces=""; }
+void PrintTelegramInfo(KnxTelegram& tg) { traces = " => Info() :\n"; tg.Info(traces); TracesDisplay(); }
+
 // ################################################
 // ### IP DEVICE CONFIGURATION
 // ################################################
@@ -62,6 +68,7 @@ struct knx_data_in {
   uint16_t Zeit            = G_ADDR(2, 5, 17);
   uint16_t Beep            = G_ADDR(2, 7, 101);
   uint16_t Tag_Nacht       = G_ADDR(2, 5, 15); // Nacht = 1 Tag = 0
+  uint16_t GMonitor        = 0x0001;
 };
 knx_data_in Knx_In;
 struct knx_data_out {
@@ -77,25 +84,27 @@ knx_data_out Knx_Out;
 
 // Definition of the Communication Objects attached to the device
 KnxComObject KnxDevice::_comObjectsList[] = {
-  /* Output */
-  /* Index 0 */ KnxComObject( Knx_In.R1_hoch_runter, KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
-  /* Index 1 */ KnxComObject( Knx_In.R1_stop,        KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
-  /* Index 2 */ KnxComObject( Knx_In.R1_sperre,      KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
-  /* Index 3 */ KnxComObject( Knx_In.Datum,          KNX_DPT_11_001, COM_OBJ_LOGIC_IN),
-  /* Index 4 */ KnxComObject( Knx_In.Zeit,           KNX_DPT_10_001, COM_OBJ_LOGIC_IN),
-  /* Index 5 */ KnxComObject( Knx_In.Beep,           KNX_DPT_5_005 , COM_OBJ_LOGIC_IN),
-  /* Index 6 */ KnxComObject( Knx_In.Tag_Nacht,      KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
-  /* Index 7 */ KnxComObject(Knx_Out.R1_status, KNX_DPT_1_001, COM_OBJ_SENSOR),
-  /* Index 8 */ KnxComObject(Knx_Out.F_kontakt, KNX_DPT_1_001, COM_OBJ_SENSOR),
-  /* Index 9 */ KnxComObject(Knx_Out.Luftdruck, KNX_DPT_8_001, COM_OBJ_SENSOR),
-  /* Index 10*/ KnxComObject(Knx_Out.Li1,       KNX_DPT_1_001, COM_OBJ_SENSOR),
-  /* Index 11*/ KnxComObject(Knx_Out.Li2,       KNX_DPT_1_001, COM_OBJ_SENSOR),
-  /* Index 12*/ KnxComObject(Knx_Out.Li3,       KNX_DPT_1_001, COM_OBJ_SENSOR),
-  /* Index 13*/ KnxComObject(Knx_Out.Li4,       KNX_DPT_1_001, COM_OBJ_SENSOR),
+  
+  /* Index 0 */ KnxComObject( Knx_In.GMonitor,       KNX_DPT_1_001 , COM_OBJ_LOGIC_IN), // all not adressed GA's willl be mapped to this index
+  /* Index 1 */ KnxComObject( Knx_In.R1_hoch_runter, KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
+  /* Index 2 */ KnxComObject( Knx_In.R1_stop,        KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
+  /* Index 3 */ KnxComObject( Knx_In.R1_sperre,      KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
+  /* Index 4 */ KnxComObject( Knx_In.Datum,          KNX_DPT_11_001, COM_OBJ_LOGIC_IN),
+  /* Index 5 */ KnxComObject( Knx_In.Zeit,           KNX_DPT_10_001, COM_OBJ_LOGIC_IN),
+  /* Index 6 */ KnxComObject( Knx_In.Beep,           KNX_DPT_5_005 , COM_OBJ_LOGIC_IN),
+  /* Index 7 */ KnxComObject( Knx_In.Tag_Nacht,      KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
+  /* Index 8 */ KnxComObject(Knx_Out.R1_status, KNX_DPT_1_001, COM_OBJ_SENSOR),
+  /* Index 9 */ KnxComObject(Knx_Out.F_kontakt, KNX_DPT_1_001, COM_OBJ_SENSOR),
+  /* Index 10*/ KnxComObject(Knx_Out.Luftdruck, KNX_DPT_8_001, COM_OBJ_SENSOR),
+  /* Index 11*/ KnxComObject(Knx_Out.Li1,       KNX_DPT_1_001, COM_OBJ_SENSOR),
+  /* Index 12*/ KnxComObject(Knx_Out.Li2,       KNX_DPT_1_001, COM_OBJ_SENSOR),
+  /* Index 13*/ KnxComObject(Knx_Out.Li3,       KNX_DPT_1_001, COM_OBJ_SENSOR),
+  /* Index 14*/ KnxComObject(Knx_Out.Li4,       KNX_DPT_1_001, COM_OBJ_SENSOR),
+
 
 };
 const byte KnxDevice::_comObjectsNb = sizeof(_comObjectsList) / sizeof(KnxComObject); // do no change this code
-
+// #define Anzahl_objekte =  sizeof(KnxDevice::_comObjectsList) / sizeof(KnxComObject); // do no change this code
 WebServer server(80);
 WebConfig conf;
 WiFiUDP ntpUDP;
@@ -312,28 +321,31 @@ void WiFiEvent(WiFiEvent_t event)
 
 void knxEvents(byte index) { // avoid long execution times like String calculations
   // Empfangsobjekte Input
-  //Serial.print("Knx Botschaft empfangen: "); Serial.println(index);
+  // Serial.print("Knx Botschaft empfangen: "); Serial.println(index);
+  if (index)
   {
     if (buffer_in_pnt < 24) snprintf(buffer[buffer_in_pnt++], 20, "Msg %d", index);
   }
 
   switch (index) {
-    case 0: // object index has been updated
+    case 1: // object index has been updated
+      Knx.read(index,Rolladen_Status);
+      if (buffer_in_pnt < 24) snprintf(buffer[buffer_in_pnt++], 20, "Index 1 Wert: %2d",Rolladen_Status ); 
       break;
-    case 3: // Datum von Knx lesen an Mqtt schicken
+    case 4: // Datum von Knx lesen an Mqtt schicken
       {
         byte m[3]; Knx.read(index, m); // read index 4 3 bytes for Timeformat
         if (buffer_in_pnt < 24) snprintf(buffer[buffer_in_pnt++], 20, "Datum:%02d.%02d.%02d", m[0], m[1], m[2]); //geht ab 2100 nicht mehr..
       }
       break;
-    case 4: //Zeit von Knx lesen an Mqtt schicken
+    case 5: //Zeit von Knx lesen an Mqtt schicken
       {
         byte m[3]; Knx.read(index, m); // read index 4 3 bytes for Timeformat
         m[0] &= 0x1F; // Tag rauslöschen..
         if (buffer_in_pnt < 24) snprintf(buffer[buffer_in_pnt++], 20, "Zeit: %2d:%2d:%2d", m[0], m[1], m[2]); //geht ab 2100 nicht mehr..
       }
       break;
-    case 5: //Beep
+    case 6: //Beep
       {
         // client.publish(TOPIC, "Beep");
         pinMode(Beep_out, OUTPUT); // Workaround Timer1..
@@ -341,7 +353,7 @@ void knxEvents(byte index) { // avoid long execution times like String calculati
         timerAlarmEnable(timer1);
         break;
       }
-    case 6: // object index has been updated
+    case 7: // object index has been updated
       {
         // Status_Tag_Nacht = Knx.read(index);
         Knx.read(index, Status_Tag_Nacht);
@@ -353,16 +365,35 @@ void knxEvents(byte index) { // avoid long execution times like String calculati
         }
         break;
       }
+    case 0: // KnxDevice._comObjectsNb: // Gruppenmonitor Objekt
+      {
+        byte m[3] = {0,0,0}; // Knx.read(index, m); // read any type ! index 4 3 bytes for Timeformat]
+        byte length = (Ga_data[5] & 0x1F);
+        // Korrektur 1. Byte..
+        if (length == 1) Knx.read(index, Ga_data[8]);
+        // Serial.print("Ga_int: "); Serial.println(buffer[buffer_in_pnt-1]);
+        if ((length == 1)||(length == 2)){if (buffer_in_pnt < 24)snprintf(buffer[buffer_in_pnt++], 20, "GA: %d/%d/%d:%02X", (Ga_int >> 11), ((Ga_int >> 8) & 0x7), (Ga_int & 0xff), Ga_data[8]);} 
+        if (length == 3) {if (buffer_in_pnt < 24)snprintf(buffer[buffer_in_pnt++], 30, "GA: %d/%d/%d:%02X:%02X", (Ga_int >> 11), ((Ga_int >> 8) & 0x7), (Ga_int & 0xff), Ga_data[8], Ga_data[9]);}
+        if (length == 4) {if (buffer_in_pnt < 24)snprintf(buffer[buffer_in_pnt++], 30, "GA: %d/%d/%d:%02X:%02X:%02X", (Ga_int >> 11), ((Ga_int >> 8) & 0x7), (Ga_int & 0xff), Ga_data[8], Ga_data[9],Ga_data[10]);}
+        if (length == 5) {if (buffer_in_pnt < 24)snprintf(buffer[buffer_in_pnt++], 40,"Ga_Data: %02X:%02X:%02X:%02X", Ga_data[8],Ga_data[9],Ga_data[10],Ga_data[11]);} 
+          Ga_data[10] = 0;
+          Ga_data[11] = 0;
+          Ga_data[8] = 0;
+          Ga_data[9] = 0;
+        break;
+      }
 
     default:
       //DEBUGSERIAL.println("Uninteressantes Objekt empfangen");
       break;
   }
-  if (index != 5) { // Bei jeder empfangenen Botschaft ein kurzer Ton
+  #if 0
+  if ((index != 5)&&(index != 0)) { // Bei jeder empfangenen Botschaft ein kurzer Ton
     Isr_tone_duration = 5;
     pinMode(Beep_out, OUTPUT);
     timerAlarmEnable(timer1);
   }
+  #endif
 }
 
 void IRAM_ATTR ISR_tone()
@@ -493,11 +524,14 @@ void setup()
 
   Serial.println("knx init coming on Serial2");
   //////////////////////////////////////////////  KNX Init /////////////////////
+  // legt _tpuart als Device an! Kein Zugriff von hier möglich..
   if (Knx.begin(KNX_SERIAL, individualAddress) == KNX_DEVICE_ERROR) {
     Serial.println("knx init ERROR, stop here!!");
     while (1);
   }
   Serial.println("Knx Init done");
+  TracesDisplay();
+  // Serial.println("Anzahl_objekte:");Serial.println(Anzahl_objekte);
 
 
 #if 1
@@ -527,6 +561,7 @@ void loop()
   // Knx
   Knx_start = micros();
   Knx.task();
+  // TracesDisplay(); // Verursacht lange Laufzeit..
   Knx_stop = micros();
   { // Laufzeitmessung /////////////////////////////////////////////////////////
     uint32_t temp = Knx_stop - Knx_start;
@@ -546,7 +581,7 @@ void loop()
   { // Busmonitor all GA's send to mqtt
 
     // in GA_int ist die Gruppenadresse Hexademinal gespeichert, wird hier extrahiert Area/Linie/Grp
-    if (buffer_in_pnt < 24)snprintf(buffer[buffer_in_pnt++], 20, "GA: %d/%d/%d", (Ga_int >> 11), ((Ga_int >> 8) & 0x7), (Ga_int & 0xff));
+    // if (buffer_in_pnt < 24)snprintf(buffer[buffer_in_pnt++], 20, "GA: %d/%d/%d", (Ga_int >> 11), ((Ga_int >> 8) & 0x7), (Ga_int & 0xff));
     Ga_old = Ga_int;
   }
   if (!(Main_Clock & 0x3fffff)) {
@@ -555,7 +590,7 @@ void loop()
     //client.publish("LZ", buffer);
 
     if (Knxupdated == 0) {
-      Knx.update(6);
+      // Knx.update(6);
       //Serial.print("Tag/Nacht Info anfordern");
       Knxupdated = 1;
     }
@@ -583,10 +618,10 @@ void loop()
       //Serial.print("Tag_timer: "); Serial.println(Tag_timer);
     }
 #if 0
-    Knx.write(10, (Nacht_timer + Tag_timer) & 1);
-    Knx.write(11, (Nacht_timer + Tag_timer) & 2);
-    Knx.write(12, (Nacht_timer + Tag_timer) & 4);
-    Knx.write(13, (Nacht_timer + Tag_timer) & 8);
+    Knx.write(11, (Nacht_timer + Tag_timer) & 1);
+    Knx.write(12, (Nacht_timer + Tag_timer) & 2);
+    Knx.write(13, (Nacht_timer + Tag_timer) & 4);
+    Knx.write(14, (Nacht_timer + Tag_timer) & 8);
 #endif
     Serial.print(".");//Keep Alive signal
   }
