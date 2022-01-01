@@ -1,4 +1,5 @@
-                                                                                                                                                             // buffer added for all callbacks buffer[0] ist immer leer, erste Botschaft in Buffer[1] lifo
+// Board: Esp 32 Dev Modul geht!
+// 010122 Alle Min die Zeit senden Phys. Adresse in ETS eingetragen und übernommen
 // 111021 Beep added via 2/7/101
 // Mqtt ip Adresse aus Conf laden..
 // Debug auf Serial Ausgabe
@@ -22,7 +23,7 @@
 // ################################################
 // ### KNX DEVICE CONFIGURATION
 // ################################################
-word individualAddress = P_ADDR(5, 1, 111);
+uint16_t individualAddress = P_ADDR(1, 2, 120);
 
 // ################################################
 // ### BOARD CONFIGURATION
@@ -79,13 +80,14 @@ struct knx_data_out {
   uint16_t Li2           = G_ADDR(5, 1, 2);
   uint16_t Li3           = G_ADDR(5, 1, 3);
   uint16_t Li4           = G_ADDR(5, 1, 4);
+  uint16_t Uhrzeit       = G_ADDR(1, 7, 5);
 };
 knx_data_out Knx_Out;
 
 // Definition of the Communication Objects attached to the device
 KnxComObject KnxDevice::_comObjectsList[] = {
   
-  /* Index 0 */ KnxComObject( Knx_In.GMonitor,       KNX_DPT_1_001 , COM_OBJ_LOGIC_IN), // all not adressed GA's willl be mapped to this index
+  /* Index 0 */ KnxComObject( Knx_In.GMonitor,       KNX_DPT_1_001 , COM_OBJ_LOGIC_IN), // all not adressed GA's will be mapped to this index
   /* Index 1 */ KnxComObject( Knx_In.R1_hoch_runter, KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
   /* Index 2 */ KnxComObject( Knx_In.R1_stop,        KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
   /* Index 3 */ KnxComObject( Knx_In.R1_sperre,      KNX_DPT_1_001 , COM_OBJ_LOGIC_IN),
@@ -100,8 +102,7 @@ KnxComObject KnxDevice::_comObjectsList[] = {
   /* Index 12*/ KnxComObject(Knx_Out.Li2,       KNX_DPT_1_001, COM_OBJ_SENSOR),
   /* Index 13*/ KnxComObject(Knx_Out.Li3,       KNX_DPT_1_001, COM_OBJ_SENSOR),
   /* Index 14*/ KnxComObject(Knx_Out.Li4,       KNX_DPT_1_001, COM_OBJ_SENSOR),
-
-
+  /* Index 15*/ KnxComObject(Knx_Out.Uhrzeit,   KNX_DPT_10_001,COM_OBJ_SENSOR),  
 };
 const byte KnxDevice::_comObjectsNb = sizeof(_comObjectsList) / sizeof(KnxComObject); // do no change this code
 // #define Anzahl_objekte =  sizeof(KnxDevice::_comObjectsList) / sizeof(KnxComObject); // do no change this code
@@ -471,7 +472,17 @@ void Call_Task1(void *parameter)
       client.publish("Tag", weekDays[timeClient.getDay()]);
     }
 #endif
-
+    last_minutes = minutes;
+    minutes = timeClient.getMinutes();
+    if (minutes != last_minutes){
+      //snprintf(time_string, 20, "%d:%d:%d", timeClient.getHours(), minutes, timeClient.getSeconds());
+      Stunde =  timeClient.getHours();
+      Minute = minutes;
+      Sekunde = timeClient.getSeconds();
+      Tag = timeClient.getDay();
+      new_minutes = 1;
+      // client.publish(TOPIC,"Neue Minute");
+    }
     delay(1); // damit wird die Kontrolle an den Scheduler zurück gegeben, ggf wird Idle Task aufgerufen -> avoid WDT
   }
 }
@@ -596,7 +607,7 @@ void loop()
     }
     if (Mqtt_in_zeiger)
     {
-      Serial.println(mqtt_buffer[Mqtt_out_zeiger]);
+      // Serial.println(mqtt_buffer[Mqtt_out_zeiger]);
       Mqtt_out_zeiger++;
     }
     if ((Mqtt_in_zeiger == Mqtt_out_zeiger) && (Mqtt_in_zeiger != 0)) //queue ist leer und nicht schon resettet
@@ -623,7 +634,7 @@ void loop()
     Knx.write(13, (Nacht_timer + Tag_timer) & 4);
     Knx.write(14, (Nacht_timer + Tag_timer) & 8);
 #endif
-    Serial.print(".");//Keep Alive signal
+    // Serial.print(".");//Keep Alive signal
   }
   if (!(Main_Clock & 0xfffff)) {
     if (buffer_in_pnt) {
@@ -641,6 +652,15 @@ void loop()
         else buffer[buffer_in_pnt][0] = '\0'; //untersten Buffer leeren
       }
     }
-
+  if (new_minutes) // Alle Minuten die aktuelle Uhrzeit auf den Bus schreiben
+  {
+    new_minutes = 0;
+    byte m[3];
+    m[0] = (Stunde | Tag << 5);
+    m[1] = Minute;
+    m[2] = Sekunde;
+    Knx.write(15, m); // write 3 bytes for Timeformat
+    // Serial.println("Knx Write 15");
+  }
   Main_Clock++;
 }
